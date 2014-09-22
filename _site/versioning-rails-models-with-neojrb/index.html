@@ -11,7 +11,7 @@
 
   <title>
     
-      Disaster Area &middot; Adventures in Software Development
+      Versioning Rails models with Neo4j.rb &middot; Disaster Area
     
   </title>
 
@@ -103,31 +103,10 @@
       </div>
 
       <div class="container content">
-        <div class="posts">
-  
-  <div class="post">
-    <h1 class="post-title">
-      <a href="/a-new-beginning">
-        A new beginning
-      </a>
-    </h1>
-
-    <span class="post-date">21 Sep 2014</span>
-
-    <p>I&#39;ve finally got around to resurrecting my blog. Here we go again! </p>
-
-  </div>
-  
-  <div class="post">
-    <h1 class="post-title">
-      <a href="/versioning-rails-models-with-neojrb">
-        Versioning Rails models with Neo4j.rb
-      </a>
-    </h1>
-
-    <span class="post-date">14 Nov 2011</span>
-
-    <p>I recently helped add versioning support to <a href="https://github.com/andreasronge/neo4j">Neo4j.rb</a>. Versioning only works for Rails models at the moment. To add versioning to your model, you&#39;ll need include the Versioning module:</p>
+        <div class="post">
+  <h1 class="post-title">Versioning Rails models with Neo4j.rb</h1>
+  <span class="post-date">14 Nov 2011</span>
+  <p>I recently helped add versioning support to <a href="https://github.com/andreasronge/neo4j">Neo4j.rb</a>. Versioning only works for Rails models at the moment. To add versioning to your model, you&#39;ll need include the Versioning module:</p>
 
 <div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="nc">VersionableModel</span> <span class="o">&lt;</span> <span class="no">Neo4j</span><span class="o">::</span><span class="no">Rails</span><span class="o">::</span><span class="no">Model</span>
   <span class="kp">include</span> <span class="no">Neo4j</span><span class="o">::</span><span class="no">Rails</span><span class="o">::</span><span class="no">Versioning</span>
@@ -235,19 +214,23 @@ This creates a new version (version 4), and ensures that the driver is linked to
 
 <p>PS: In case you&#39;re wondering who Walter Plinge is, check out <a href="http://en.wikipedia.org/wiki/Walter_Plinge">http://en.wikipedia.org/wiki/Walter_Plinge</a></p>
 
-  </div>
-  
 </div>
 
-<div class="pagination">
-  
-    <span class="pagination-item older">Older</span>
-  
-  
-    <span class="pagination-item newer">Newer</span>
-  
+<div class="related">
+  <h2>Related Posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/a-new-beginning">
+            A new beginning
+            <small>21 Sep 2014</small>
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
 </div>
-
 
       </div>
     </div>

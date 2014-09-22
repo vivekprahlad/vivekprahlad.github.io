@@ -4,7 +4,7 @@
  <title>Disaster Area</title>
  <link href="http://blog.vivekprahlad.com/atom.xml" rel="self"/>
  <link href="http://blog.vivekprahlad.com/"/>
- <updated>2014-09-22T05:18:07+08:00</updated>
+ <updated>2014-09-23T00:19:29+08:00</updated>
  <id>http://blog.vivekprahlad.com</id>
  <author>
    <name>Vivek Prahlad</name>
@@ -18,6 +18,121 @@
    <updated>2014-09-21T00:00:00+08:00</updated>
    <id>http://blog.vivekprahlad.com/a-new-beginning</id>
    <content type="html">&lt;p&gt;I&amp;#39;ve finally got around to resurrecting my blog. Here we go again! &lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Versioning Rails models with Neo4j.rb</title>
+   <link href="http://blog.vivekprahlad.com/versioning-rails-models-with-neojrb"/>
+   <updated>2011-11-14T00:00:00+08:00</updated>
+   <id>http://blog.vivekprahlad.com/versioning-rails-models-with-neojrb</id>
+   <content type="html">&lt;p&gt;I recently helped add versioning support to &lt;a href=&quot;https://github.com/andreasronge/neo4j&quot;&gt;Neo4j.rb&lt;/a&gt;. Versioning only works for Rails models at the moment. To add versioning to your model, you&amp;#39;ll need include the Versioning module:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;VersionableModel&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Rails&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Model&lt;/span&gt;
+  &lt;span class=&quot;kp&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Rails&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Versioning&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h3&gt;How it works&lt;/h3&gt;
+
+&lt;p&gt;Versioning creates snapshots under a given rails model instance. Note that snapshots aren&amp;#39;t Rails models, but vanilla nodes. The relationship from the instance to its snapshot versions captures information about the snapshot, such as the version number, the class that is being versioned, and the id of the versioned model. When asked to retrieve a particular version of an model, the versioning module internally does a lucene search using all of these parameters.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/versioning_with_neo4jrb/versioning.png&quot; alt=&quot;Versioning&quot;&gt;&lt;/p&gt;
+
+&lt;h3&gt;Full snapshots&lt;/h3&gt;
+
+&lt;p&gt;Snapshots currently capture all the properties of an instance. The snapshots create links to the same nodes that are linked to an instance, with one important difference. The snapshot&amp;#39;s relationships all have a &lt;code&gt;&amp;#39;version_&amp;#39;&lt;/code&gt; prefix - the prefix is added in order to distinguish between &amp;#39;regular&amp;#39; relationships and those created for versioning. Both incoming as well as outgoing relationships are recorded.&lt;/p&gt;
+
+&lt;p&gt;Let&amp;#39;s look at an example:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;SportsCar&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Rails&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Model&lt;/span&gt;
+  &lt;span class=&quot;kp&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Rails&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Versioning&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;property&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:brand&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;
+ 
+&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;Driver&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Rails&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Model&lt;/span&gt;
+  &lt;span class=&quot;kp&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Rails&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Versioning&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;property&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:name&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;has_n&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;ss&quot;&gt;:sports_cars&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h3&gt;Version 1&lt;/h3&gt;
+
+&lt;p&gt;With version 1 of the driver, there are no links to any cars:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;n&quot;&gt;driver&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Driver&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;create&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;ss&quot;&gt;:name&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;Walter Plinge&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/versioning_with_neo4jrb/version1.png&quot; alt=&quot;Version 1&quot;&gt;&lt;/p&gt;
+
+&lt;h3&gt;Version 2&lt;/h3&gt;
+
+&lt;p&gt;With version 2, we link the driver to a sports car - a Porsche.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;n&quot;&gt;driver&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sports_cars&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Sportscar&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;create&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;ss&quot;&gt;:brand&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&amp;gt;&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;&amp;#39;Porsche&amp;#39;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;driver&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;save!&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/versioning_with_neo4jrb/version2.png&quot; alt=&quot;Version 2&quot;&gt;&lt;/p&gt;
+
+&lt;p&gt;Now, both the driver and the current version are linked to the Porsche.&lt;/p&gt;
+
+&lt;h3&gt;Version 3&lt;/h3&gt;
+
+&lt;p&gt;With version 3, we link the driver to a second car - a Ferrari. The graph now starts getting complicated.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/versioning_with_neo4jrb/version3.png&quot; alt=&quot;Version 3&quot;&gt;&lt;/p&gt;
+
+&lt;p&gt;The driver, as well as the latest snapshot, are both linked to two cars - the Porsche and the Ferrarri.&lt;/p&gt;
+
+&lt;h3&gt;Working with a version&lt;/h3&gt;
+
+&lt;p&gt;To retrieve a snapshot, you&amp;#39;ll need to call the version API.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;n&quot;&gt;instance&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;version_number&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;The snapshot object will respond to the exact same properties as those on instance. It also allows relationships to be traversed using the incoming / outgoing API. The prefix stuff I&amp;#39;d mentioned above is handled transparently, so you can continue to use the same relationship names that you&amp;#39;ve used in your model.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;n&quot;&gt;driver&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;outgoing&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;ss&quot;&gt;:sports_cars&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;#Returns two cars as expected&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h3&gt;Reverting to a snapshot&lt;/h3&gt;
+
+&lt;p&gt;To revert to a particular version, simply call&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;n&quot;&gt;instance&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;revert_to&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;version_number&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;Revert restores properties and relationships, and creates a new version. So in the driver / car example, let&amp;#39;s see what the driver example looks like when we revert to version 2:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;n&quot;&gt;driver&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;revert_to&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;img src=&quot;/assets/versioning_with_neo4jrb/version4.png&quot; alt=&quot;Version 4&quot;&gt; 
+This creates a new version (version 4), and ensures that the driver is linked to one sports car, just like it was with version 2.&lt;/p&gt;
+
+&lt;h3&gt;Max versions&lt;/h3&gt;
+
+&lt;p&gt;If you&amp;#39;d like to limit the maximum number of versions, use the max_versions declaration in your model class. This deletes the oldest version once the max versions threshold is exceeded.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;MaxVersionModel&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Rails&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Model&lt;/span&gt;
+  &lt;span class=&quot;kp&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Rails&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Versioning&lt;/span&gt;
+ 
+  &lt;span class=&quot;n&quot;&gt;max_versions&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;
+ 
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h3&gt;Gotchas&lt;/h3&gt;
+
+&lt;p&gt;In case any of the nodes linked to an instance are deleted, the versioning support makes no attempt to capture this. The relationship between the snapshot and such a node simply disappears.&lt;/p&gt;
+
+&lt;p&gt;In other words, when related nodes are deleted, reverting a node to it&amp;#39;s previous version will not recreate deleted nodes and relationships.&lt;/p&gt;
+
+&lt;h3&gt;Future improvements&lt;/h3&gt;
+
+&lt;p&gt;The versioning support doesn&amp;#39;t currently capture properties on relationships, but that should be relatively straightforward to address.&lt;/p&gt;
+
+&lt;p&gt;Deleting a node does not always delete its snapshots (this can happen whenever snapshots have relationships to other nodes). On second thoughts, this sounds more like a bug than an improvement :-).&lt;/p&gt;
+
+&lt;p&gt;Finally, supporting delta updates would allow more efficient storage (like I said earlier, each snapshot currently stores all the properties of a model).&lt;/p&gt;
+
+&lt;p&gt;That&amp;#39;s about it, feedback and comments welcome!&lt;/p&gt;
+
+&lt;p&gt;PS: In case you&amp;#39;re wondering who Walter Plinge is, check out &lt;a href=&quot;http://en.wikipedia.org/wiki/Walter_Plinge&quot;&gt;http://en.wikipedia.org/wiki/Walter_Plinge&lt;/a&gt;&lt;/p&gt;
 </content>
  </entry>
  
