@@ -237,6 +237,112 @@ This creates a new version (version 4), and ensures that the driver is linked to
 
   </div>
   
+  <div class="post">
+    <h1 class="post-title">
+      <a href="/multitenancy-with-neojrb">
+        Multitenancy with Neo4j.rb
+      </a>
+    </h1>
+
+    <span class="post-date">05 Nov 2011</span>
+
+    <p>A little while ago, I&#39;d helped add multitenancy support to <a href="https://github.com/andreasronge/neo4j">Neo4j.rb</a>. This allows the same Neo4j database instance to support multiple tenants/customers simultaneously. There are several ways of achieving multitenancy, but the main aim of the current solution was to minimize the number of required changes to an existing codebase.</p>
+
+<p>So here&#39;s how it all works.</p>
+
+<h3>Partitioning graphs</h3>
+
+<p>The Neo4j.rb multitenancy approach partitions the graph in such a way that all queries and traversals are scoped to a given tenant. This means that queries like Order.all, for example would return different (and correct) results depending on what the current tenant is.</p>
+
+<p>Once Neo4j supports sharding, it should be possible to adapt this scheme to take advantage of it.</p>
+
+<h3>Reference nodes</h3>
+
+<p>The reference node is a starting point in the graph space. All Neo4j graphs are connected by default, which basically means that nodes and relationships cannot exist in isolation. The multitenancy feature works by &#39;moving&#39; the reference node to whatever the current tenant is.</p>
+
+<h3>The Neo4j.rb metamodel</h3>
+
+<p>Neo4j.rb stores type metadata in the graph. Let&#39;s consider an example where we have two models: Tenant and Country.</p>
+
+<p>In the screenshot below, the home icon represents the reference node, which the default starting point in the graph. From the reference node, each model type has an outgoing relationship, named after the model class. Neo4j.rb refers to the node at the end of this relationship as a Rule node. The &#39;all&#39; rule node is connected to every instance, and its count property keeps track of the number of instances.</p>
+
+<p>This particular database has a single tenant instance...</p>
+
+<p>... and three countries. The <code>_classname</code> property stores the Rails model class name for a given node.</p>
+
+<h3>Tenants</h3>
+
+<p>While creating new tenants, it&#39;s often necessary to set up data for each tenant. Here&#39;s one way of doing this:</p>
+
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="nc">Tenant</span> <span class="o">&lt;</span> <span class="no">Neo4j</span><span class="o">::</span><span class="no">Rails</span><span class="o">::</span><span class="no">Model</span>
+  <span class="n">property</span> <span class="ss">:name</span>
+  <span class="n">ref_node</span> <span class="p">{</span> <span class="no">Neo4j</span><span class="o">.</span><span class="n">default_ref_node</span> <span class="p">}</span>
+
+  <span class="n">after_create</span> <span class="ss">:create_default_data</span>
+
+  <span class="k">def</span> <span class="nf">create_default_data</span>
+    <span class="no">Neo4j</span><span class="o">.</span><span class="n">threadlocal_ref_node</span> <span class="o">=</span> <span class="nb">self</span>
+    <span class="nb">load</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">#{</span><span class="no">Rails</span><span class="o">.</span><span class="n">root</span><span class="si">}</span><span class="s2">/db/tenant_default_data.rb&quot;</span><span class="p">)</span>
+  <span class="k">end</span>
+<span class="k">end</span></code></pre></div>
+
+<p>In case it takes a while to set up the data for a client, it&#39;s worth doing the data setup in the background.</p>
+
+<h3>&#39;Movable&#39; reference nodes</h3>
+
+<p>Changing the reference node to a tenant ends up effectively partioning the graph. All tenant specific entities end up getting attached under the tenant, like so for Tenant 1:</p>
+
+<p>... and for Tenant 2.</p>
+
+<h3>Setting the Threadlocal reference node</h3>
+
+<p>Neo4j.rb allows a reference node to be set for the current thread. A :before_filter method in your controller is a reasonable place to set the threadlocal reference node.</p>
+
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="nc">OrdersController</span> <span class="o">&lt;</span> <span class="no">ApplicationController</span>
+ 
+<span class="n">before_filter</span> <span class="ss">:authenticate_user!</span><span class="p">,</span> <span class="ss">:ensure_tenant_setup!</span>
+
+  <span class="kp">protected</span>
+  <span class="k">def</span> <span class="nf">ensure_tenant_setup!</span>
+    <span class="no">Neo4j</span><span class="o">.</span><span class="n">threadlocal_ref_node</span> <span class="o">=</span> <span class="n">current_user</span><span class="o">.</span><span class="n">tenant</span>
+  <span class="k">end</span>
+<span class="k">end</span></code></pre></div>
+
+<h3>Lucene Indexing</h3>
+
+<p>By default, for every Rails model, Neo4j.rb creates lucene indices using this format:</p>
+
+<p><code>&lt;TopLevelModulename&gt;_&lt;NextlevelModuleName&gt;_&lt;ModelClassName&gt;-exact/fulltext</code></p>
+
+<p>The multitenancy work adds the tenant name as an additional dimension to the index name. Each tenant node contributes an index prefix. The prefix makes it possible to partition the lucene index on a per tenant basis.</p>
+
+<p><code>&lt;Tenant Name&gt;_&lt;TopLevelModulename&gt;_&lt;NextlevelModuleName&gt;_&lt;ModelClassName&gt;</code></p>
+
+<p>The net effect is that lucene queries are scoped to the current tenant. (Except in the case of shared models, which are accessible across all tenants and use a single lucene index).</p>
+
+<h3>Reference data / Shared models</h3>
+
+<p>What about data that&#39;s shared across tenants? Examples could be a list of valid currencies, or a list of countries. It doesn&#39;t make sense to replicate this data on a per tenant basis. To handle these kind of entities, you can declare the model&#39;s reference node to be the default reference node, which ensures that all instances of the model are accessible across all tenants.</p>
+
+<div class="highlight"><pre><code class="language-ruby" data-lang="ruby"><span class="k">class</span> <span class="nc">Country</span> <span class="o">&lt;</span> <span class="no">Neo4j</span><span class="o">::</span><span class="no">Rails</span><span class="o">::</span><span class="no">Model</span>
+
+  <span class="n">property</span> <span class="ss">:name</span>
+  <span class="n">ref_node</span> <span class="p">{</span> <span class="n">neo4j</span><span class="o">.</span><span class="n">default_ref_node</span> <span class="p">}</span>
+
+<span class="k">end</span></code></pre></div>
+
+<h3>Gotchas</h3>
+
+<ul>
+<li><em>Clearing the reference node</em>
+Neo4j.rb has Rack middleware that resets the reference node after every request. In Rails&#39; multithreaded mode, you could end up with stale / wrong reference nodes in case this were not done.</li>
+<li><em>The &#39;too many open files&#39; problem</em>
+Since sets of lucene indices are created for each tenant, you can expect approximately 7 * N * T open files, where N is the total number of models, and T is the total number of tenants. By default, Neo4j&#39;s Lucene IndexWriters are never closed (keeping the writers open improves performance). The default per process file limit is 1024 on Linux.
+I&#39;ve submitted a pull request to the Neo4j database here to fix this issue. (See <a href="https://github.com/neo4j/community/pull/51">https://github.com/neo4j/community/pull/51</a>). The fix involves using a configurable LRU cache for Lucene index writers/searchers.</li>
+</ul>
+
+  </div>
+  
 </div>
 
 <div class="pagination">

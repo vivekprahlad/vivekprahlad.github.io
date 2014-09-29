@@ -4,7 +4,7 @@
  <title>Disaster Area</title>
  <link href="http://blog.vivekprahlad.com/atom.xml" rel="self"/>
  <link href="http://blog.vivekprahlad.com/"/>
- <updated>2014-09-23T00:19:29+08:00</updated>
+ <updated>2014-09-23T19:28:30+08:00</updated>
  <id>http://blog.vivekprahlad.com</id>
  <author>
    <name>Vivek Prahlad</name>
@@ -133,6 +133,108 @@ This creates a new version (version 4), and ensures that the driver is linked to
 &lt;p&gt;That&amp;#39;s about it, feedback and comments welcome!&lt;/p&gt;
 
 &lt;p&gt;PS: In case you&amp;#39;re wondering who Walter Plinge is, check out &lt;a href=&quot;http://en.wikipedia.org/wiki/Walter_Plinge&quot;&gt;http://en.wikipedia.org/wiki/Walter_Plinge&lt;/a&gt;&lt;/p&gt;
+</content>
+ </entry>
+ 
+ <entry>
+   <title>Multitenancy with Neo4j.rb</title>
+   <link href="http://blog.vivekprahlad.com/multitenancy-with-neojrb"/>
+   <updated>2011-11-05T00:00:00+08:00</updated>
+   <id>http://blog.vivekprahlad.com/multitenancy-with-neojrb</id>
+   <content type="html">&lt;p&gt;A little while ago, I&amp;#39;d helped add multitenancy support to &lt;a href=&quot;https://github.com/andreasronge/neo4j&quot;&gt;Neo4j.rb&lt;/a&gt;. This allows the same Neo4j database instance to support multiple tenants/customers simultaneously. There are several ways of achieving multitenancy, but the main aim of the current solution was to minimize the number of required changes to an existing codebase.&lt;/p&gt;
+
+&lt;p&gt;So here&amp;#39;s how it all works.&lt;/p&gt;
+
+&lt;h3&gt;Partitioning graphs&lt;/h3&gt;
+
+&lt;p&gt;The Neo4j.rb multitenancy approach partitions the graph in such a way that all queries and traversals are scoped to a given tenant. This means that queries like Order.all, for example would return different (and correct) results depending on what the current tenant is.&lt;/p&gt;
+
+&lt;p&gt;Once Neo4j supports sharding, it should be possible to adapt this scheme to take advantage of it.&lt;/p&gt;
+
+&lt;h3&gt;Reference nodes&lt;/h3&gt;
+
+&lt;p&gt;The reference node is a starting point in the graph space. All Neo4j graphs are connected by default, which basically means that nodes and relationships cannot exist in isolation. The multitenancy feature works by &amp;#39;moving&amp;#39; the reference node to whatever the current tenant is.&lt;/p&gt;
+
+&lt;h3&gt;The Neo4j.rb metamodel&lt;/h3&gt;
+
+&lt;p&gt;Neo4j.rb stores type metadata in the graph. Let&amp;#39;s consider an example where we have two models: Tenant and Country.&lt;/p&gt;
+
+&lt;p&gt;In the screenshot below, the home icon represents the reference node, which the default starting point in the graph. From the reference node, each model type has an outgoing relationship, named after the model class. Neo4j.rb refers to the node at the end of this relationship as a Rule node. The &amp;#39;all&amp;#39; rule node is connected to every instance, and its count property keeps track of the number of instances.&lt;/p&gt;
+
+&lt;p&gt;This particular database has a single tenant instance...&lt;/p&gt;
+
+&lt;p&gt;... and three countries. The &lt;code&gt;_classname&lt;/code&gt; property stores the Rails model class name for a given node.&lt;/p&gt;
+
+&lt;h3&gt;Tenants&lt;/h3&gt;
+
+&lt;p&gt;While creating new tenants, it&amp;#39;s often necessary to set up data for each tenant. Here&amp;#39;s one way of doing this:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;Tenant&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Rails&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Model&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;property&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:name&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;ref_node&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;default_ref_node&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+  &lt;span class=&quot;n&quot;&gt;after_create&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:create_default_data&lt;/span&gt;
+
+  &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;create_default_data&lt;/span&gt;
+    &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;threadlocal_ref_node&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;self&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;load&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&amp;quot;&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;#{&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Rails&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;root&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;/db/tenant_default_data.rb&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;In case it takes a while to set up the data for a client, it&amp;#39;s worth doing the data setup in the background.&lt;/p&gt;
+
+&lt;h3&gt;&amp;#39;Movable&amp;#39; reference nodes&lt;/h3&gt;
+
+&lt;p&gt;Changing the reference node to a tenant ends up effectively partioning the graph. All tenant specific entities end up getting attached under the tenant, like so for Tenant 1:&lt;/p&gt;
+
+&lt;p&gt;... and for Tenant 2.&lt;/p&gt;
+
+&lt;h3&gt;Setting the Threadlocal reference node&lt;/h3&gt;
+
+&lt;p&gt;Neo4j.rb allows a reference node to be set for the current thread. A :before_filter method in your controller is a reasonable place to set the threadlocal reference node.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;OrdersController&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;ApplicationController&lt;/span&gt;
+ 
+&lt;span class=&quot;n&quot;&gt;before_filter&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:authenticate_user!&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:ensure_tenant_setup!&lt;/span&gt;
+
+  &lt;span class=&quot;kp&quot;&gt;protected&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;ensure_tenant_setup!&lt;/span&gt;
+    &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;threadlocal_ref_node&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;current_user&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;tenant&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h3&gt;Lucene Indexing&lt;/h3&gt;
+
+&lt;p&gt;By default, for every Rails model, Neo4j.rb creates lucene indices using this format:&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;&amp;lt;TopLevelModulename&amp;gt;_&amp;lt;NextlevelModuleName&amp;gt;_&amp;lt;ModelClassName&amp;gt;-exact/fulltext&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;The multitenancy work adds the tenant name as an additional dimension to the index name. Each tenant node contributes an index prefix. The prefix makes it possible to partition the lucene index on a per tenant basis.&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;&amp;lt;Tenant Name&amp;gt;_&amp;lt;TopLevelModulename&amp;gt;_&amp;lt;NextlevelModuleName&amp;gt;_&amp;lt;ModelClassName&amp;gt;&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;The net effect is that lucene queries are scoped to the current tenant. (Except in the case of shared models, which are accessible across all tenants and use a single lucene index).&lt;/p&gt;
+
+&lt;h3&gt;Reference data / Shared models&lt;/h3&gt;
+
+&lt;p&gt;What about data that&amp;#39;s shared across tenants? Examples could be a list of valid currencies, or a list of countries. It doesn&amp;#39;t make sense to replicate this data on a per tenant basis. To handle these kind of entities, you can declare the model&amp;#39;s reference node to be the default reference node, which ensures that all instances of the model are accessible across all tenants.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-ruby&quot; data-lang=&quot;ruby&quot;&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;Country&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;Neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Rails&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;::&lt;/span&gt;&lt;span class=&quot;no&quot;&gt;Model&lt;/span&gt;
+
+  &lt;span class=&quot;n&quot;&gt;property&lt;/span&gt; &lt;span class=&quot;ss&quot;&gt;:name&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;ref_node&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;neo4j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;default_ref_node&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h3&gt;Gotchas&lt;/h3&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;em&gt;Clearing the reference node&lt;/em&gt;
+Neo4j.rb has Rack middleware that resets the reference node after every request. In Rails&amp;#39; multithreaded mode, you could end up with stale / wrong reference nodes in case this were not done.&lt;/li&gt;
+&lt;li&gt;&lt;em&gt;The &amp;#39;too many open files&amp;#39; problem&lt;/em&gt;
+Since sets of lucene indices are created for each tenant, you can expect approximately 7 * N * T open files, where N is the total number of models, and T is the total number of tenants. By default, Neo4j&amp;#39;s Lucene IndexWriters are never closed (keeping the writers open improves performance). The default per process file limit is 1024 on Linux.
+I&amp;#39;ve submitted a pull request to the Neo4j database here to fix this issue. (See &lt;a href=&quot;https://github.com/neo4j/community/pull/51&quot;&gt;https://github.com/neo4j/community/pull/51&lt;/a&gt;). The fix involves using a configurable LRU cache for Lucene index writers/searchers.&lt;/li&gt;
+&lt;/ul&gt;
 </content>
  </entry>
  
